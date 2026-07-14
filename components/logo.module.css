@@ -1,0 +1,11 @@
+.logoLight {
+  display: none;
+}
+
+:global(html[data-theme="light"]) .logoDefault {
+  display: none;
+}
+
+:global(html[data-theme="light"]) .logoLight {
+  display: unset;
+}
