@@ -53,6 +53,14 @@ export type ProductInput = {
   description: string;
 };
 
+export type Category = {
+  id: string;
+  name: string;
+  productCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export function fetchAdminStats(token: string): Promise<AdminStats> {
   return apiFetch<AdminStats>("/admin/stats", { token });
 }
@@ -99,4 +107,20 @@ export function updateProduct(
 
 export function deleteProduct(token: string, id: string): Promise<void> {
   return apiFetch<void>(`/products/${id}`, { method: "DELETE", token });
+}
+
+export function fetchCategories(): Promise<Category[]> {
+  return apiFetch<Category[]>("/categories");
+}
+
+export function createCategory(token: string, name: string): Promise<Category> {
+  return apiFetch<Category>("/categories", { method: "POST", body: { name }, token });
+}
+
+export function renameCategory(token: string, id: string, name: string): Promise<Category> {
+  return apiFetch<Category>(`/categories/${id}`, { method: "PATCH", body: { name }, token });
+}
+
+export function deleteCategory(token: string, id: string): Promise<void> {
+  return apiFetch<void>(`/categories/${id}`, { method: "DELETE", token });
 }

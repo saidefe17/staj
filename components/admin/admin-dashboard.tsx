@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { StatsPanel } from "./stats-panel";
 import { ProductsPanel } from "./products-panel";
+import { CategoriesPanel } from "./categories-panel";
 import { OrdersPanel } from "./orders-panel";
 import { UsersPanel } from "./users-panel";
 
-type Tab = "dashboard" | "products" | "orders" | "users";
+type Tab = "dashboard" | "products" | "categories" | "orders" | "users";
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "dashboard", label: "Dashboard" },
   { value: "products", label: "Ürünler" },
+  { value: "categories", label: "Kategoriler" },
   { value: "orders", label: "Siparişler" },
   { value: "users", label: "Kullanıcılar" },
 ];
@@ -21,7 +23,12 @@ const SETTINGS_INDEX: { tab: Tab; label: string; keywords: string[] }[] = [
   {
     tab: "products",
     label: "Ürün Ekle / Düzenle / Sil",
-    keywords: ["ürün", "fiyat", "kategori", "açıklama", "stok"],
+    keywords: ["ürün", "fiyat", "açıklama", "stok"],
+  },
+  {
+    tab: "categories",
+    label: "Kategori Ekle / Yeniden Adlandır / Sil",
+    keywords: ["kategori", "kategoriler"],
   },
   {
     tab: "orders",
@@ -141,6 +148,7 @@ export function AdminDashboard() {
 
       {tab === "dashboard" ? <StatsPanel /> : null}
       {tab === "products" ? <ProductsPanel filter={search} /> : null}
+      {tab === "categories" ? <CategoriesPanel filter={search} /> : null}
       {tab === "orders" ? <OrdersPanel filter={search} /> : null}
       {tab === "users" ? <UsersPanel filter={search} /> : null}
     </div>

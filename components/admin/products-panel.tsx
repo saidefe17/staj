@@ -3,13 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchProducts, type Product } from "@/lib/products";
-import { createProduct, deleteProduct, updateProduct, type ProductInput } from "@/lib/admin";
+import {
+  createProduct,
+  deleteProduct,
+  fetchCategories,
+  updateProduct,
+  type Category,
+  type ProductInput,
+} from "@/lib/admin";
 
 const EMPTY_DRAFT: ProductInput = { name: "", category: "", price: 0, description: "" };
 
 export function ProductsPanel({ filter = "" }: { filter?: string }) {
   const { getToken } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +40,16 @@ export function ProductsPanel({ filter = "" }: { filter?: string }) {
       }
     }
 
+    async function loadCategories() {
+      try {
+        setCategories(await fetchCategories());
+      } catch {
+        // Category list only powers the dropdown; product management still works without it.
+      }
+    }
+
     loadProducts();
+    loadCategories();
   }, []);
 
   async function handleCreate() {
@@ -122,6 +139,7 @@ export function ProductsPanel({ filter = "" }: { filter?: string }) {
           onChange={setNewDraft}
           onSubmit={handleCreate}
           submitLabel="Ürünü Kaydet"
+          categories={categories}
         />
       ) : null}
 
@@ -140,6 +158,7 @@ export function ProductsPanel({ filter = "" }: { filter?: string }) {
                   onSubmit={() => handleUpdate(product.id)}
                   submitLabel="Kaydet"
                   onCancel={() => setEditingId(null)}
+                  categories={categories}
                 />
               </div>
             ) : (
@@ -185,13 +204,23 @@ function ProductForm({
   onSubmit,
   submitLabel,
   onCancel,
+  categories,
 }: {
   draft: ProductInput;
   onChange: (draft: ProductInput) => void;
   onSubmit: () => void;
   submitLabel: string;
   onCancel?: () => void;
+  categories: Category[];
 }) {
+  const categoryOptions = useMemo(() => {
+    const names = categories.map((category) => category.name);
+    if (draft.category && !names.includes(draft.category)) {
+      return [draft.category, ...names];
+    }
+    return names;
+  }, [categories, draft.category]);
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
       <input
@@ -200,12 +229,25 @@ function ProductForm({
         placeholder="Ürün adı"
         className="rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
       />
-      <input
+      <select
         value={draft.category}
         onChange={(event) => onChange({ ...draft, category: event.target.value })}
-        placeholder="Kategori"
         className="rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-      />
+      >
+        <option value="" disabled>
+          Kategori seçin
+        </option>
+        {categoryOptions.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </select>
+      {categoryOptions.length === 0 ? (
+        <p className="text-xs text-muted">
+          Henüz kategori yok. Önce &quot;Kategoriler&quot; sekmesinden bir kategori oluşturun.
+        </p>
+      ) : null}
       <input
         type="number"
         min={0}

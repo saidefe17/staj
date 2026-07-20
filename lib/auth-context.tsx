@@ -10,10 +10,14 @@ import {
 } from "react";
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   onIdTokenChanged,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
+  verifyBeforeUpdateEmail,
   type User,
 } from "firebase/auth";
 import { auth } from "./firebase";
@@ -28,6 +32,8 @@ type AuthContextValue = {
   register: (fullName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateDisplayName: (fullName: string) => Promise<void>;
+  sendPasswordReset: () => Promise<void>;
+  changeEmail: (newEmail: string, currentPassword: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -64,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await updateProfile(credential.user, { displayName: fullName });
     const token = await credential.user.getIdToken();
     await apiFetch("/auth/profile", { method: "POST", body: { fullName }, token });
+    await credential.user.reload();
+    setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null);
   }, []);
 
   const logout = useCallback(async () => {
@@ -82,9 +90,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null);
   }, []);
 
+  const sendPasswordReset = useCallback(async () => {
+    if (!auth.currentUser?.email) {
+      throw new Error("Oturum bulunamadı.");
+    }
+    await sendPasswordResetEmail(auth, auth.currentUser.email);
+  }, []);
+
+  const changeEmail = useCallback(async (newEmail: string, currentPassword: string) => {
+    if (!auth.currentUser?.email) {
+      throw new Error("Oturum bulunamadı.");
+    }
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, isAdmin, getToken, login, register, logout, updateDisplayName }}
+      value={{
+        user,
+        loading,
+        isAdmin,
+        getToken,
+        login,
+        register,
+        logout,
+        updateDisplayName,
+        sendPasswordReset,
+        changeEmail,
+      }}
     >
       {children}
     </AuthContext.Provider>
@@ -108,6 +143,8 @@ const FIREBASE_ERROR_MESSAGES: Record<string, string> = {
   "auth/email-already-in-use": "Bu e-posta adresi zaten kullanılıyor.",
   "auth/weak-password": "Şifre en az 6 karakter olmalıdır.",
   "auth/too-many-requests": "Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.",
+  "auth/requires-recent-login":
+    "Bu işlem için tekrar giriş yapmanız gerekiyor. Lütfen çıkış yapıp tekrar giriş yapın.",
 };
 
 export function getFirebaseErrorMessage(error: unknown): string {
