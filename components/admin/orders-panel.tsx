@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchAllOrders, updateOrderStatus, type Order, type OrderStatus } from "@/lib/admin";
 
@@ -16,7 +16,7 @@ const PAYMENT_LABELS: Record<Order["paymentMethod"], string> = {
   transfer: "Havale/EFT",
 };
 
-export function OrdersPanel() {
+export function OrdersPanel({ filter = "" }: { filter?: string }) {
   const { getToken } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,13 +52,26 @@ export function OrdersPanel() {
     }
   }
 
+  const filteredOrders = useMemo(() => {
+    const query = filter.trim().toLocaleLowerCase("tr");
+    if (!query) return orders;
+    return orders.filter(
+      (order) =>
+        (order.userEmail ?? order.userId).toLocaleLowerCase("tr").includes(query) ||
+        order.id.toLocaleLowerCase("tr").includes(query) ||
+        order.status.toLocaleLowerCase("tr").includes(query),
+    );
+  }, [orders, filter]);
+
   if (loading) return <p className="text-sm text-muted">Yükleniyor...</p>;
   if (error) return <p className="text-sm text-danger">{error}</p>;
   if (orders.length === 0) return <p className="text-sm text-muted">Henüz sipariş bulunmuyor.</p>;
+  if (filteredOrders.length === 0)
+    return <p className="text-sm text-muted">Aramanızla eşleşen sipariş bulunamadı.</p>;
 
   return (
     <div className="flex flex-col gap-3">
-      {orders.map((order) => (
+      {filteredOrders.map((order) => (
         <div
           key={order.id}
           className="rounded-2xl border border-border bg-surface p-4 transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"

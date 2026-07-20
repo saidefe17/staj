@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   fetchAllUsers,
@@ -10,7 +10,7 @@ import {
   type UserRole,
 } from "@/lib/admin";
 
-export function UsersPanel() {
+export function UsersPanel({ filter = "" }: { filter?: string }) {
   const { user: currentUser, getToken } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +59,26 @@ export function UsersPanel() {
     }
   }
 
+  const filteredUsers = useMemo(() => {
+    const query = filter.trim().toLocaleLowerCase("tr");
+    if (!query) return users;
+    return users.filter(
+      (user) =>
+        user.fullName.toLocaleLowerCase("tr").includes(query) ||
+        (user.email ?? "").toLocaleLowerCase("tr").includes(query),
+    );
+  }, [users, filter]);
+
   if (loading) return <p className="text-sm text-muted">Yükleniyor...</p>;
   if (users.length === 0) return <p className="text-sm text-muted">Henüz kullanıcı bulunmuyor.</p>;
+  if (filteredUsers.length === 0)
+    return <p className="text-sm text-muted">Aramanızla eşleşen kullanıcı bulunamadı.</p>;
 
   return (
     <div className="flex flex-col gap-3">
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      {users.map((user) => {
+      {filteredUsers.map((user) => {
         const isSelf = user.uid === currentUser?.uid;
         return (
           <div

@@ -13,15 +13,20 @@ export async function apiFetch<T>(
   path: string,
   options: { method?: string; body?: unknown; token?: string | null } = {},
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
-    },
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: options.method ?? "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      },
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(0, "Sunucuya bağlanılamadı. Lütfen bağlantınızı kontrol edin.");
+  }
 
   if (!res.ok) {
     let message = `İstek başarısız oldu (${res.status}).`;

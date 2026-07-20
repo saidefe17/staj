@@ -10,6 +10,21 @@ const paymentOptions: { value: PaymentMethod; label: string }[] = [
   { value: "transfer", label: "Havale / EFT" },
 ];
 
+function formatCardNumber(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 16);
+  return (digits.match(/.{1,4}/g) ?? []).join(" ");
+}
+
+function formatExpiry(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+function formatCvv(value: string) {
+  return value.replace(/\D/g, "").slice(0, 3);
+}
+
 export function PaymentForm({
   total,
   onBack,
@@ -157,7 +172,7 @@ export function PaymentForm({
               <input
                 id="cardNumber"
                 value={cardNumber}
-                onChange={(event) => setCardNumber(event.target.value)}
+                onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
                 placeholder="0000 0000 0000 0000"
                 inputMode="numeric"
                 maxLength={19}
@@ -173,7 +188,7 @@ export function PaymentForm({
                 <input
                   id="expiry"
                   value={expiry}
-                  onChange={(event) => setExpiry(event.target.value)}
+                  onChange={(event) => setExpiry(formatExpiry(event.target.value))}
                   placeholder="AA/YY"
                   inputMode="numeric"
                   maxLength={5}
@@ -187,7 +202,7 @@ export function PaymentForm({
                 <input
                   id="cvv"
                   value={cvv}
-                  onChange={(event) => setCvv(event.target.value)}
+                  onChange={(event) => setCvv(formatCvv(event.target.value))}
                   placeholder="000"
                   inputMode="numeric"
                   maxLength={3}

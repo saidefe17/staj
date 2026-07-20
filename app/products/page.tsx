@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
 import { fetchProducts } from "@/lib/products";
-import { ProductCard } from "@/components/products/product-card";
+import { ProductsBrowser } from "@/components/products/products-browser";
 
 export const metadata: Metadata = {
   title: "Ürünler | VolantX Shopping",
 };
 
 export default async function ProductsPage() {
-  const products = await fetchProducts();
+  let products: Awaited<ReturnType<typeof fetchProducts>> = [];
+  let loadError = false;
+  try {
+    products = await fetchProducts();
+  } catch {
+    loadError = true;
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
@@ -18,14 +24,14 @@ export default async function ProductsPage() {
         </p>
       </div>
 
-      {products.length === 0 ? (
+      {loadError ? (
+        <p className="text-sm text-danger">
+          Ürünler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.
+        </p>
+      ) : products.length === 0 ? (
         <p className="text-sm text-muted">Şu anda listelenecek ürün bulunmuyor.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <ProductsBrowser products={products} />
       )}
     </div>
   );

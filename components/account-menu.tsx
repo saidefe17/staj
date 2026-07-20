@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
 export function AccountMenu() {
   const router = useRouter();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, updateDisplayName } = useAuth();
   const [open, setOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
+        setIsEditingName(false);
+        setNameError(null);
       }
     }
 
@@ -34,6 +40,38 @@ export function AccountMenu() {
     router.push("/admin");
   }
 
+  function startEditName() {
+    setNameDraft(user?.displayName ?? "");
+    setNameError(null);
+    setIsEditingName(true);
+  }
+
+  function cancelEditName() {
+    setIsEditingName(false);
+    setNameError(null);
+  }
+
+  async function handleSaveName(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      setNameError("Kullanıcı adı boş olamaz.");
+      return;
+    }
+
+    setIsSavingName(true);
+    setNameError(null);
+    try {
+      await updateDisplayName(trimmed);
+      setIsEditingName(false);
+      setOpen(false);
+    } catch {
+      setNameError("Kullanıcı adı güncellenemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setIsSavingName(false);
+    }
+  }
+
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -46,23 +84,64 @@ export function AccountMenu() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
-          {isAdmin ? (
-            <button
-              type="button"
-              onClick={handleManageAccount}
-              className="block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-hover"
-            >
-              Hesabı Yönet
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="block w-full px-4 py-2.5 text-left text-sm text-danger transition-colors hover:bg-surface-hover"
-          >
-            Çıkış Yap
-          </button>
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+          {isEditingName ? (
+            <form onSubmit={handleSaveName} className="flex flex-col gap-2 p-3">
+              <label htmlFor="account-fullname" className="text-xs font-medium text-muted">
+                Kullanıcı Adı
+              </label>
+              <input
+                id="account-fullname"
+                autoFocus
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary"
+              />
+              {nameError ? <p className="text-xs text-danger">{nameError}</p> : null}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isSavingName}
+                  className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingName ? "Kaydediliyor..." : "Kaydet"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEditName}
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface-hover"
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={startEditName}
+                className="block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-hover"
+              >
+                Kullanıcı Adını Değiştir
+              </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleManageAccount}
+                  className="block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-hover"
+                >
+                  Hesabı Yönet
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="block w-full px-4 py-2.5 text-left text-sm text-danger transition-colors hover:bg-surface-hover"
+              >
+                Çıkış Yap
+              </button>
+            </>
+          )}
         </div>
       ) : null}
     </div>

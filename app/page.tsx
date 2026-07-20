@@ -5,7 +5,13 @@ import { HomeHero } from "@/components/home-hero";
 import { HomeFeatures } from "@/components/home-features";
 
 export default async function Home() {
-  const products = await fetchProducts();
+  let products: Awaited<ReturnType<typeof fetchProducts>> = [];
+  let loadError = false;
+  try {
+    products = await fetchProducts();
+  } catch {
+    loadError = true;
+  }
   const featuredProducts = products.slice(0, 3);
 
   return (
@@ -13,6 +19,14 @@ export default async function Home() {
       <HomeHero />
 
       <HomeFeatures />
+
+      {loadError ? (
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+          <p className="rounded-2xl border border-border bg-surface p-4 text-sm text-muted">
+            Ürünler şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.
+          </p>
+        </div>
+      ) : null}
 
       {featuredProducts.length > 0 ? (
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 sm:px-6">

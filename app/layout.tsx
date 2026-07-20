@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
+import { CartProvider } from "@/lib/cart-context";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
@@ -53,9 +54,11 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <AuthProvider>
-            <Navbar />
-            <main className="flex flex-1 flex-col">{children}</main>
-            <Footer />
+            <CartProvider>
+              <Navbar />
+              <main className="flex flex-1 flex-col">{children}</main>
+              <Footer />
+            </CartProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

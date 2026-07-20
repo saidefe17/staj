@@ -27,6 +27,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateDisplayName: (fullName: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,8 +70,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   }, []);
 
+  const updateDisplayName = useCallback(async (fullName: string) => {
+    if (!auth.currentUser) {
+      throw new Error("Oturum bulunamadı.");
+    }
+
+    await updateProfile(auth.currentUser, { displayName: fullName });
+    const token = await auth.currentUser.getIdToken();
+    await apiFetch("/auth/profile", { method: "POST", body: { fullName }, token });
+    await auth.currentUser.reload();
+    setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, getToken, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, isAdmin, getToken, login, register, logout, updateDisplayName }}
+    >
       {children}
     </AuthContext.Provider>
   );

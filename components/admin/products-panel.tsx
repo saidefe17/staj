@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fetchProducts, type Product } from "@/lib/products";
 import { createProduct, deleteProduct, updateProduct, type ProductInput } from "@/lib/admin";
 
 const EMPTY_DRAFT: ProductInput = { name: "", category: "", price: 0, description: "" };
 
-export function ProductsPanel() {
+export function ProductsPanel({ filter = "" }: { filter?: string }) {
   const { getToken } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +76,16 @@ export function ProductsPanel() {
     }
   }
 
+  const filteredProducts = useMemo(() => {
+    const query = filter.trim().toLocaleLowerCase("tr");
+    if (!query) return products;
+    return products.filter(
+      (product) =>
+        product.name.toLocaleLowerCase("tr").includes(query) ||
+        product.category.toLocaleLowerCase("tr").includes(query),
+    );
+  }, [products, filter]);
+
   async function handleDelete(id: string) {
     if (!window.confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
 
@@ -92,7 +102,9 @@ export function ProductsPanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Ürünler ({products.length})</h3>
+        <h3 className="text-sm font-semibold">
+          Ürünler ({filteredProducts.length}{filter ? ` / ${products.length}` : ""})
+        </h3>
         <button
           type="button"
           onClick={() => setShowNewForm((current) => !current)}
@@ -115,9 +127,11 @@ export function ProductsPanel() {
 
       {loading ? (
         <p className="text-sm text-muted">Yükleniyor...</p>
+      ) : filteredProducts.length === 0 ? (
+        <p className="text-sm text-muted">Aramanızla eşleşen ürün bulunamadı.</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {products.map((product) =>
+          {filteredProducts.map((product) =>
             editingId === product.id ? (
               <div key={product.id} className="rounded-2xl border border-border bg-surface p-4">
                 <ProductForm

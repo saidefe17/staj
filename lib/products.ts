@@ -9,7 +9,12 @@ export type Product = {
 };
 
 export async function fetchProducts(): Promise<Product[]> {
-  const res = await fetch(`${API_URL}/products`, { cache: "no-store" });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/products`, { cache: "no-store" });
+  } catch {
+    throw new Error("Sunucuya bağlanılamadı. Lütfen daha sonra tekrar deneyin.");
+  }
   if (!res.ok) {
     throw new Error("Ürünler yüklenirken bir hata oluştu.");
   }
@@ -17,7 +22,12 @@ export async function fetchProducts(): Promise<Product[]> {
 }
 
 export async function fetchProductById(id: string): Promise<Product | null> {
-  const res = await fetch(`${API_URL}/products/${id}`, { cache: "no-store" });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/products/${id}`, { cache: "no-store" });
+  } catch {
+    throw new Error("Sunucuya bağlanılamadı. Lütfen daha sonra tekrar deneyin.");
+  }
   if (res.status === 404) {
     return null;
   }

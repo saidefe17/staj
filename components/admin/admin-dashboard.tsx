@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { StatsPanel } from "./stats-panel";
@@ -17,9 +17,48 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "users", label: "Kullanıcılar" },
 ];
 
+const SETTINGS_INDEX: { tab: Tab; label: string; keywords: string[] }[] = [
+  {
+    tab: "products",
+    label: "Ürün Ekle / Düzenle / Sil",
+    keywords: ["ürün", "fiyat", "kategori", "açıklama", "stok"],
+  },
+  {
+    tab: "orders",
+    label: "Sipariş Durumu ve Ödeme Bilgisi",
+    keywords: ["sipariş", "kargo", "teslim", "ödeme", "havale", "iptal"],
+  },
+  {
+    tab: "users",
+    label: "Kullanıcı Rolü ve Hesap Durumu",
+    keywords: ["kullanıcı", "admin", "rol", "askıya", "müşteri", "hesap"],
+  },
+  {
+    tab: "dashboard",
+    label: "İstatistikler ve Satış Özeti",
+    keywords: ["istatistik", "ciro", "rapor", "dashboard", "en çok satan"],
+  },
+];
+
 export function AdminDashboard() {
   const { user, isAdmin, loading } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [search, setSearch] = useState("");
+
+  const searchSuggestions = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("tr");
+    if (!query) return [];
+    return SETTINGS_INDEX.filter(
+      (entry) =>
+        entry.label.toLocaleLowerCase("tr").includes(query) ||
+        entry.keywords.some((keyword) => keyword.includes(query)),
+    );
+  }, [search]);
+
+  function jumpToSetting(target: Tab) {
+    setTab(target);
+    setSearch("");
+  }
 
   if (loading) {
     return (
@@ -55,6 +94,34 @@ export function AdminDashboard() {
         <p className="text-sm text-muted">Ürünleri, siparişleri ve kullanıcıları yönet.</p>
       </div>
 
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Ayar veya kayıt ara (ör. ürün, sipariş, kullanıcı)..."
+          className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-3.5 text-sm outline-none transition-colors focus:border-primary"
+        />
+
+        {searchSuggestions.length > 0 ? (
+          <div className="absolute left-0 right-0 top-full z-10 mt-1.5 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+            {searchSuggestions.map((entry) => (
+              <button
+                key={entry.tab}
+                type="button"
+                onClick={() => jumpToSetting(entry.tab)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-hover"
+              >
+                <span>{entry.label}</span>
+                <span className="shrink-0 text-xs text-muted">
+                  {TABS.find((item) => item.value === entry.tab)?.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex gap-2 overflow-x-auto border-b border-border">
         {TABS.map((item) => (
           <button
@@ -73,9 +140,25 @@ export function AdminDashboard() {
       </div>
 
       {tab === "dashboard" ? <StatsPanel /> : null}
-      {tab === "products" ? <ProductsPanel /> : null}
-      {tab === "orders" ? <OrdersPanel /> : null}
-      {tab === "users" ? <UsersPanel /> : null}
+      {tab === "products" ? <ProductsPanel filter={search} /> : null}
+      {tab === "orders" ? <OrdersPanel filter={search} /> : null}
+      {tab === "users" ? <UsersPanel filter={search} /> : null}
     </div>
+  );
+}
+
+function SearchIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path strokeLinecap="round" d="m21 21-4.3-4.3" />
+    </svg>
   );
 }

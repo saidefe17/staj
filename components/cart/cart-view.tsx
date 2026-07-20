@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useCart } from "@/lib/cart-context";
 import { fetchCart, removeCartItem, updateCartItemQuantity, type CartSummary } from "@/lib/cart";
 import { CartItemRow } from "./cart-item-row";
 import { PaymentForm } from "./payment-form";
@@ -12,6 +13,7 @@ type Step = "cart" | "payment" | "success";
 
 export function CartView() {
   const { user, loading: authLoading, getToken } = useAuth();
+  const { refreshCart } = useCart();
   const [cart, setCart] = useState<CartSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export function CartView() {
           ? await removeCartItem(token, productId)
           : await updateCartItemQuantity(token, productId, quantity);
       setCart(summary);
+      await refreshCart();
     } catch {
       setError("Sepet güncellenirken bir hata oluştu.");
     }
@@ -65,6 +68,7 @@ export function CartView() {
     try {
       const summary = await removeCartItem(token, productId);
       setCart(summary);
+      await refreshCart();
     } catch {
       setError("Ürün kaldırılırken bir hata oluştu.");
     }
@@ -101,7 +105,10 @@ export function CartView() {
       <PaymentForm
         total={cart.total}
         onBack={() => setStep("cart")}
-        onSuccess={() => setStep("success")}
+        onSuccess={() => {
+          setStep("success");
+          refreshCart();
+        }}
         getToken={getToken}
       />
     );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useCart } from "@/lib/cart-context";
 import { apiFetch } from "@/lib/api";
 
 export function AddToCartButton({
@@ -14,6 +15,7 @@ export function AddToCartButton({
 }) {
   const router = useRouter();
   const { user, getToken } = useAuth();
+  const { refreshCart } = useCart();
   const [status, setStatus] = useState<"idle" | "loading" | "added">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +36,7 @@ export function AddToCartButton({
         token,
       });
       setStatus("added");
+      await refreshCart();
     } catch {
       setError("Sepete eklenemedi. Lütfen tekrar deneyin.");
       setStatus("idle");
