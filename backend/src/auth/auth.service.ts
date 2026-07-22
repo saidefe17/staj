@@ -142,7 +142,7 @@ export class AuthService {
       console.error(`[AuthService] Kullanıcı sorgulanamadı (${email}): ${detail}`);
       this.logger.error(`Kullanıcı sorgulanamadı (${email}): ${detail}`);
       throw new InternalServerErrorException(
-        `Şu anda işleminiz gerçekleştirilemiyor. [${detail}]`,
+        "Şu anda işleminiz gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.",
       );
     }
 
@@ -168,10 +168,8 @@ export class AuthService {
       const detail = describeError(error);
       console.error(`[AuthService] Doğrulama kodu e-postası gönderilemedi (${email}): ${detail}`);
       this.logger.error(`Doğrulama kodu e-postası gönderilemedi (${email}): ${detail}`);
-      // NOT: Hata detayı geçici olarak istemciye de veriliyor (teşhis amaçlı).
-      // Sorun çözüldükten sonra bu satırı jenerik bir mesaja geri döndür.
       throw new InternalServerErrorException(
-        `Doğrulama kodu e-postası gönderilemedi. [${detail}]`,
+        "Doğrulama kodu e-postası gönderilemedi. Lütfen daha sonra tekrar deneyin.",
       );
     }
   }
@@ -193,7 +191,7 @@ export class AuthService {
       console.error(`[AuthService] Kullanıcı sorgulanamadı (${email}): ${detail}`);
       this.logger.error(`Kullanıcı sorgulanamadı (${email}): ${detail}`);
       throw new InternalServerErrorException(
-        `Şu anda işleminiz gerçekleştirilemiyor. [${detail}]`,
+        "Şu anda işleminiz gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.",
       );
     }
 
@@ -231,7 +229,9 @@ export class AuthService {
       const detail = describeError(error);
       console.error(`[AuthService] Şifre güncellenemedi (${email}): ${detail}`);
       this.logger.error(`Şifre güncellenemedi (${email}): ${detail}`);
-      throw new InternalServerErrorException(`Şifre güncellenemedi. [${detail}]`);
+      throw new InternalServerErrorException(
+        "Şifre güncellenemedi. Lütfen daha sonra tekrar deneyin.",
+      );
     }
 
     await ref.delete();
