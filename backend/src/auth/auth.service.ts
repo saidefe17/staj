@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
 import { createHash, randomInt } from "crypto";
 import { FirebaseService } from "../firebase/firebase.service";
 import { MailService } from "../mail/mail.service";
@@ -7,6 +12,7 @@ import { UserProfile } from "../users/user-profile";
 
 const RESET_CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_RESET_ATTEMPTS = 5;
+const FIREBASE_CALL_TIMEOUT_MS = 8000;
 
 type PasswordResetRecord = {
   email: string;
@@ -16,8 +22,29 @@ type PasswordResetRecord = {
   createdAt: number;
 };
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Zaman aşımı: ${label} (${ms}ms içinde yanıt gelmedi).`));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly firebase: FirebaseService,
     private readonly mail: MailService,
@@ -92,10 +119,21 @@ export class AuthService {
   async requestPasswordReset(email: string): Promise<void> {
     let userRecord;
     try {
-      userRecord = await this.firebase.auth.getUserByEmail(email);
-    } catch {
-      // Hesap yoksa sessizce çık; e-posta numaralandırmayı önlemek için hata vermiyoruz.
-      return;
+      userRecord = await withTimeout(
+        this.firebase.auth.getUserByEmail(email),
+        FIREBASE_CALL_TIMEOUT_MS,
+        "Firebase kullanıcı sorgusu",
+      );
+    } catch (error) {
+      const err = error as { code?: string };
+      if (err?.code === "auth/user-not-found") {
+        // Hesap yoksa sessizce çık; e-posta numaralandırmayı önlemek için hata vermiyoruz.
+        return;
+      }
+      this.logger.error(`Kullanıcı sorgulanamadı (${email}):`, error as Error);
+      throw new InternalServerErrorException(
+        "Şu anda işleminiz gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.",
+      );
     }
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -108,15 +146,39 @@ export class AuthService {
     };
 
     await this.passwordResetsCollection.doc(userRecord.uid).set(record);
-    await this.mail.sendVerificationCode(email, code);
+
+    try {
+      await withTimeout(
+        this.mail.sendVerificationCode(email, code),
+        FIREBASE_CALL_TIMEOUT_MS,
+        "Doğrulama kodu e-postası",
+      );
+    } catch (error) {
+      await this.passwordResetsCollection.doc(userRecord.uid).delete();
+      this.logger.error(`Doğrulama kodu e-postası gönderilemedi (${email}):`, error as Error);
+      throw new InternalServerErrorException(
+        "Doğrulama kodu e-postası gönderilemedi. Lütfen daha sonra tekrar deneyin.",
+      );
+    }
   }
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
     let userRecord;
     try {
-      userRecord = await this.firebase.auth.getUserByEmail(email);
-    } catch {
-      throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
+      userRecord = await withTimeout(
+        this.firebase.auth.getUserByEmail(email),
+        FIREBASE_CALL_TIMEOUT_MS,
+        "Firebase kullanıcı sorgusu",
+      );
+    } catch (error) {
+      const err = error as { code?: string };
+      if (err?.code === "auth/user-not-found") {
+        throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
+      }
+      this.logger.error(`Kullanıcı sorgulanamadı (${email}):`, error as Error);
+      throw new InternalServerErrorException(
+        "Şu anda işleminiz gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.",
+      );
     }
 
     const ref = this.passwordResetsCollection.doc(userRecord.uid);
@@ -143,7 +205,19 @@ export class AuthService {
       throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
     }
 
-    await this.firebase.auth.updateUser(userRecord.uid, { password: newPassword });
+    try {
+      await withTimeout(
+        this.firebase.auth.updateUser(userRecord.uid, { password: newPassword }),
+        FIREBASE_CALL_TIMEOUT_MS,
+        "Firebase şifre güncelleme",
+      );
+    } catch (error) {
+      this.logger.error(`Şifre güncellenemedi (${email}):`, error as Error);
+      throw new InternalServerErrorException(
+        "Şifre güncellenemedi. Lütfen daha sonra tekrar deneyin.",
+      );
+    }
+
     await ref.delete();
   }
 }
