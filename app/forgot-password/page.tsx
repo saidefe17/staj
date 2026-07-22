@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
           <div>
             <h1 className="text-2xl font-semibold">Şifremi unuttum</h1>
             <p className="mt-1 text-sm text-muted">
-              E-posta adresini gir, sana bir doğrulama kodu gönderelim.
+              E-posta adresini gir, sana bir şifre sıfırlama bağlantısı gönderelim.
             </p>
           </div>
         </div>

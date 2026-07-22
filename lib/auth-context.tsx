@@ -33,6 +33,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   updateDisplayName: (fullName: string) => Promise<void>;
   sendPasswordReset: () => Promise<void>;
+  sendPasswordResetToEmail: (email: string) => Promise<void>;
   changeEmail: (newEmail: string, currentPassword: string) => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -98,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, auth.currentUser.email);
   }, []);
 
+  const sendPasswordResetToEmail = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email, {
+      url: `${window.location.origin}/login`,
+    });
+  }, []);
+
   const changeEmail = useCallback(async (newEmail: string, currentPassword: string) => {
     if (!auth.currentUser?.email) {
       throw new Error("Oturum bulunamadı.");
@@ -128,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateDisplayName,
         sendPasswordReset,
+        sendPasswordResetToEmail,
         changeEmail,
         refreshUser,
       }}
