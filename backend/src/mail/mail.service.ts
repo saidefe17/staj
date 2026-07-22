@@ -1,45 +1,36 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 @Injectable()
 export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter | null = null;
+  private resend: Resend | null = null;
 
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
-    const host = this.config.get<string>("SMTP_HOST");
-    const port = Number(this.config.get<string>("SMTP_PORT") ?? 587);
-    const secure = this.config.get<string>("SMTP_SECURE") === "true";
-    const user = this.config.get<string>("SMTP_USER");
-    const pass = this.config.get<string>("SMTP_PASS");
+    const apiKey = this.config.get<string>("RESEND_API_KEY");
 
-    if (!host || !user || !pass) {
+    if (!apiKey) {
       this.logger.warn(
-        "SMTP yapılandırması eksik (SMTP_HOST/SMTP_USER/SMTP_PASS). E-posta gönderimi devre dışı kalacak.",
+        "RESEND_API_KEY tanımlı değil. E-posta gönderimi devre dışı kalacak.",
       );
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-    });
+    this.resend = new Resend(apiKey);
   }
 
   async sendVerificationCode(to: string, code: string): Promise<void> {
-    if (!this.transporter) {
-      this.logger.error(`E-posta gönderilemedi (${to}): SMTP yapılandırılmamış.`);
+    if (!this.resend) {
+      this.logger.error(`E-posta gönderilemedi (${to}): RESEND_API_KEY yapılandırılmamış.`);
       throw new Error("Mail servisi yapılandırılmamış.");
     }
 
-    const from = this.config.get<string>("MAIL_FROM") ?? "VolantX Shopping <no-reply@volantx.com>";
+    const from = this.config.get<string>("MAIL_FROM") ?? "VolantX Shopping <onboarding@resend.dev>";
 
-    await this.transporter.sendMail({
+    const { error } = await this.resend.emails.send({
       from,
       to,
       subject: "VolantX Shopping - Şifre Sıfırlama Kodu",
@@ -52,5 +43,9 @@ export class MailService implements OnModuleInit {
         </div>
       `,
     });
+
+    if (error) {
+      throw new Error(`${error.name}: ${error.message}`);
+    }
   }
 }
