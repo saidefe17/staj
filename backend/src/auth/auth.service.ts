@@ -22,6 +22,14 @@ type PasswordResetRecord = {
   createdAt: number;
 };
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    const code = (error as { code?: string }).code;
+    return code ? `${code}: ${error.message}` : error.message;
+  }
+  return String(error);
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -130,9 +138,11 @@ export class AuthService {
         // Hesap yoksa sessizce çık; e-posta numaralandırmayı önlemek için hata vermiyoruz.
         return;
       }
-      this.logger.error(`Kullanıcı sorgulanamadı (${email}):`, error as Error);
+      const detail = describeError(error);
+      console.error(`[AuthService] Kullanıcı sorgulanamadı (${email}): ${detail}`);
+      this.logger.error(`Kullanıcı sorgulanamadı (${email}): ${detail}`);
       throw new InternalServerErrorException(
-        "Şu anda işleminiz gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.",
+        `Şu anda işleminiz gerçekleştirilemiyor. [${detail}]`,
       );
     }
 
@@ -155,9 +165,13 @@ export class AuthService {
       );
     } catch (error) {
       await this.passwordResetsCollection.doc(userRecord.uid).delete();
-      this.logger.error(`Doğrulama kodu e-postası gönderilemedi (${email}):`, error as Error);
+      const detail = describeError(error);
+      console.error(`[AuthService] Doğrulama kodu e-postası gönderilemedi (${email}): ${detail}`);
+      this.logger.error(`Doğrulama kodu e-postası gönderilemedi (${email}): ${detail}`);
+      // NOT: Hata detayı geçici olarak istemciye de veriliyor (teşhis amaçlı).
+      // Sorun çözüldükten sonra bu satırı jenerik bir mesaja geri döndür.
       throw new InternalServerErrorException(
-        "Doğrulama kodu e-postası gönderilemedi. Lütfen daha sonra tekrar deneyin.",
+        `Doğrulama kodu e-postası gönderilemedi. [${detail}]`,
       );
     }
   }
@@ -175,9 +189,11 @@ export class AuthService {
       if (err?.code === "auth/user-not-found") {
         throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
       }
-      this.logger.error(`Kullanıcı sorgulanamadı (${email}):`, error as Error);
+      const detail = describeError(error);
+      console.error(`[AuthService] Kullanıcı sorgulanamadı (${email}): ${detail}`);
+      this.logger.error(`Kullanıcı sorgulanamadı (${email}): ${detail}`);
       throw new InternalServerErrorException(
-        "Şu anda işleminiz gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.",
+        `Şu anda işleminiz gerçekleştirilemiyor. [${detail}]`,
       );
     }
 
@@ -212,10 +228,10 @@ export class AuthService {
         "Firebase şifre güncelleme",
       );
     } catch (error) {
-      this.logger.error(`Şifre güncellenemedi (${email}):`, error as Error);
-      throw new InternalServerErrorException(
-        "Şifre güncellenemedi. Lütfen daha sonra tekrar deneyin.",
-      );
+      const detail = describeError(error);
+      console.error(`[AuthService] Şifre güncellenemedi (${email}): ${detail}`);
+      this.logger.error(`Şifre güncellenemedi (${email}): ${detail}`);
+      throw new InternalServerErrorException(`Şifre güncellenemedi. [${detail}]`);
     }
 
     await ref.delete();
