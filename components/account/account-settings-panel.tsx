@@ -1,11 +1,43 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth, getFirebaseErrorMessage } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api";
 
 export function AccountSettingsPanel() {
-  const { user, loading, updateDisplayName, sendPasswordReset, changeEmail } = useAuth();
+  const router = useRouter();
+  const { user, loading, updateDisplayName, sendPasswordReset, changeEmail, refreshUser, getToken } =
+    useAuth();
+
+  const [emailVerifiedNotice, setEmailVerifiedNotice] = useState(false);
+  const hasHandledEmailVerification = useRef(false);
+
+  useEffect(() => {
+    if (loading || !user || hasHandledEmailVerification.current) return;
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("emailVerified") !== "1") return;
+
+    hasHandledEmailVerification.current = true;
+
+    (async () => {
+      try {
+        await refreshUser();
+        const token = await getToken();
+        if (token) {
+          await apiFetch("/auth/me", { token });
+        }
+        setEmailVerifiedNotice(true);
+      } catch {
+        // Yeni e-posta bir sonraki girişte de görünür olacak; sessizce geç.
+      } finally {
+        router.replace("/account");
+      }
+    })();
+  }, [loading, user, refreshUser, getToken, router]);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -171,6 +203,10 @@ export function AccountSettingsPanel() {
             Mevcut adresin: <span className="font-medium text-foreground">{user.email}</span>
           </p>
         </div>
+
+        {emailVerifiedNotice ? (
+          <p className="text-sm text-primary">E-posta adresin doğrulandı ve güncellendi.</p>
+        ) : null}
 
         <form onSubmit={handleChangeEmail} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">

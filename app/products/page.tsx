@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { fetchProducts } from "@/lib/products";
 import { ProductsBrowser } from "@/components/products/products-browser";
+import { ProductsLoadError } from "@/components/products/products-load-error";
 
 export const metadata: Metadata = {
   title: "Ürünler | VolantX Shopping",
@@ -25,9 +26,7 @@ export default async function ProductsPage() {
       </div>
 
       {loadError ? (
-        <p className="text-sm text-danger">
-          Ürünler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.
-        </p>
+        <ProductsLoadError />
       ) : products.length === 0 ? (
         <p className="text-sm text-muted">Şu anda listelenecek ürün bulunmuyor.</p>
       ) : (

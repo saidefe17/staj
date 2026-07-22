@@ -81,7 +81,7 @@ export function LoginForm() {
             className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 pr-11 text-sm outline-none transition-colors focus:border-primary"
           />
           <Link
-            href="/login"
+            href="/forgot-password"
             className="text-xs text-muted transition-colors hover:text-foreground text-right absolute right-0 bottom-[-1.5rem]"
           >
             Şifremi unuttum

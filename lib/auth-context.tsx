@@ -34,6 +34,7 @@ type AuthContextValue = {
   updateDisplayName: (fullName: string) => Promise<void>;
   sendPasswordReset: () => Promise<void>;
   changeEmail: (newEmail: string, currentPassword: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -103,7 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
     await reauthenticateWithCredential(auth.currentUser, credential);
-    await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+    await verifyBeforeUpdateEmail(auth.currentUser, newEmail, {
+      url: `${window.location.origin}/account?emailVerified=1`,
+    });
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    if (!auth.currentUser) return;
+    await auth.currentUser.reload();
+    await auth.currentUser.getIdToken(true);
+    setUser(auth.currentUser ? ({ ...auth.currentUser } as User) : null);
   }, []);
 
   return (
@@ -119,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateDisplayName,
         sendPasswordReset,
         changeEmail,
+        refreshUser,
       }}
     >
       {children}

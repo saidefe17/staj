@@ -1,14 +1,38 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { createHash, randomInt } from "crypto";
 import { FirebaseService } from "../firebase/firebase.service";
+import { MailService } from "../mail/mail.service";
 import { AuthenticatedUser } from "../common/types/authenticated-request";
 import { UserProfile } from "../users/user-profile";
 
+const RESET_CODE_TTL_MS = 10 * 60 * 1000;
+const MAX_RESET_ATTEMPTS = 5;
+
+type PasswordResetRecord = {
+  email: string;
+  codeHash: string;
+  expiresAt: number;
+  attempts: number;
+  createdAt: number;
+};
+
 @Injectable()
 export class AuthService {
-  constructor(private readonly firebase: FirebaseService) {}
+  constructor(
+    private readonly firebase: FirebaseService,
+    private readonly mail: MailService,
+  ) {}
 
   private get usersCollection() {
     return this.firebase.firestore.collection("users");
+  }
+
+  private get passwordResetsCollection() {
+    return this.firebase.firestore.collection("passwordResets");
+  }
+
+  private hashCode(code: string): string {
+    return createHash("sha256").update(code).digest("hex");
   }
 
   async getOrCreateProfile(user: AuthenticatedUser): Promise<UserProfile> {
@@ -16,7 +40,13 @@ export class AuthService {
     const snapshot = await ref.get();
 
     if (snapshot.exists) {
-      return snapshot.data() as UserProfile;
+      const existing = snapshot.data() as UserProfile;
+      if (user.email && existing.email !== user.email) {
+        const updated = { email: user.email, updatedAt: new Date().toISOString() };
+        await ref.set(updated, { merge: true });
+        return { ...existing, ...updated };
+      }
+      return existing;
     }
 
     const now = new Date().toISOString();
@@ -57,5 +87,63 @@ export class AuthService {
 
     await ref.set(profile);
     return profile;
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    let userRecord;
+    try {
+      userRecord = await this.firebase.auth.getUserByEmail(email);
+    } catch {
+      // Hesap yoksa sessizce çık; e-posta numaralandırmayı önlemek için hata vermiyoruz.
+      return;
+    }
+
+    const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+    const record: PasswordResetRecord = {
+      email,
+      codeHash: this.hashCode(code),
+      expiresAt: Date.now() + RESET_CODE_TTL_MS,
+      attempts: 0,
+      createdAt: Date.now(),
+    };
+
+    await this.passwordResetsCollection.doc(userRecord.uid).set(record);
+    await this.mail.sendVerificationCode(email, code);
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+    let userRecord;
+    try {
+      userRecord = await this.firebase.auth.getUserByEmail(email);
+    } catch {
+      throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
+    }
+
+    const ref = this.passwordResetsCollection.doc(userRecord.uid);
+    const snapshot = await ref.get();
+
+    if (!snapshot.exists) {
+      throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
+    }
+
+    const record = snapshot.data() as PasswordResetRecord;
+
+    if (Date.now() > record.expiresAt) {
+      await ref.delete();
+      throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
+    }
+
+    if (record.attempts >= MAX_RESET_ATTEMPTS) {
+      await ref.delete();
+      throw new BadRequestException("Çok fazla hatalı deneme yapıldı. Yeni bir kod isteyin.");
+    }
+
+    if (record.codeHash !== this.hashCode(code)) {
+      await ref.set({ attempts: record.attempts + 1 }, { merge: true });
+      throw new BadRequestException("Kod geçersiz veya süresi dolmuş.");
+    }
+
+    await this.firebase.auth.updateUser(userRecord.uid, { password: newPassword });
+    await ref.delete();
   }
 }
